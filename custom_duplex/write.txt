@@ -1,0 +1,7 @@
+Some string!
+Some string!
+Some string!
+Some string!
+Some string!
+Some string!
+END
