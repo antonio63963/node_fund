@@ -31,19 +31,22 @@ async function _ask() {
 }
 
 client.on("data", async (data) => {
-  console.log("DATA: ", data.toString());
   const parsedData = JSON.parse(data.toString("utf-8"));
-  console.log(parsedData);
   if (parsedData.type == "connection") {
-    console.log("id: ", parsedData.id);
-
     myId = parsedData.id;
     await _ask();
-  } else {
-    console.log("Message: ", parsedData);
-    await terminal.moveCursor(0, -1);
+  } else if (parsedData.type == "newConnection") {
     await terminal.clearLine(0);
-    console.log("Message: ", parsedData);
+    console.log(`${parsedData.user} ${parsedData.message}`);
+  } else if (parsedData.type == "endConnection") {
+    await terminal.clearLine(0);
+    console.log(`${parsedData.user} ${parsedData.message}`);
+  } else {
+    if (parsedData.user == myId) {
+      await terminal.moveCursor(0, -1);
+    }
+    await terminal.clearLine(0);
+    console.log(`${parsedData.user}: ${parsedData.message}`);
     await _ask();
   }
 });
