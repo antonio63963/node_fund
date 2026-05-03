@@ -26,8 +26,8 @@ class MyExpress {
             MyExpress.mimeTypes[ext] || "application/octet-stream";
 
           res.setHeader("Content-Type", `${mimeType}; charset=utf-8`);
-          const filePath = p.join(__dirname, path);
-          fd = await fs.open(filePath, "r");
+
+          fd = await fs.open(path, "r");
           const readStream = fd.createReadStream();
 
           await pipeline(readStream, res);
@@ -43,11 +43,28 @@ class MyExpress {
           }
         }
       };
+      res.status = (code) => {
+        res.statusCode = code;
+        return res;
+      };
+      // for small json data that less than HighWattermark stream
+      // res.writableHighWatermark; req.readableHighWatermark
+
+      res.json = (obj) => {
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+        res.end(JSON.stringify(obj));
+      };
+
+      //++++++++++++++++++++++++++++++
       const route = req.method.toLowerCase() + req.url;
       console.log("+++ROUTE: ", route);
       if (this.routes[route]) {
         console.log("===FN: ", this.routes[route]);
         this.routes[route](req, res);
+      } else {
+        res
+          .status(404)
+          .json({ message: "Source not found...", route: req.url });
       }
     });
   }
