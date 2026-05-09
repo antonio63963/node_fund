@@ -14,6 +14,7 @@ class MyExpress {
   constructor() {
     this.server = http.createServer();
     this.routes = {};
+    this.middlewares = [];
 
     this.server.on("request", (req, res) => {
       res.sendFile = async (path) => {
@@ -55,18 +56,28 @@ class MyExpress {
         res.end(JSON.stringify(obj));
       };
 
-      //++++++++++++++++++++++++++++++
-      const route = req.method.toLowerCase() + req.url;
-      console.log("+++ROUTE: ", route);
-      if (this.routes[route]) {
-        console.log("===FN: ", this.routes[route]);
-        this.routes[route](req, res);
-      } else {
-        res
-          .status(404)
-          .json({ message: "Source not found...", route: req.url });
-      }
+      const runMiddleware = (req, res, index) => {
+        if (index == this.middlewares.length) {
+          const route = req.method.toLowerCase() + req.url;
+          if (!this.routes[route]) {
+            res
+              .status(404)
+              .json({ message: "Source not found...", route: req.url });
+          }
+          this.routes[route](req, res);
+        } else {
+          this.middlewares[index](req, res, () => {
+            runMiddleware(req, res, index + 1);
+          });
+        }
+      };
+
+      runMiddleware(req, res, 0);
     });
+  }
+
+  beforeEach(cb) {
+    this.middlewares.push(cb);
   }
 
   listen(port, callback) {
