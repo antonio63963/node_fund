@@ -9,6 +9,11 @@ stderr.write('TEXT I DON\'T WANT!...\n');
 stdout.on('data', (data) => {
   console.log('STDOUT: ', data.toString());
 });
+stdout.on('close', (code) => {
+  if(code === 0) {
+    console.log('Everything is ok!')
+  }
+})
 
 // console.log('CWD: ', process.cwd());
 
