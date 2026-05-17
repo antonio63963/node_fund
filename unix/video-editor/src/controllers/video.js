@@ -10,13 +10,9 @@ const db = require("../DB.js");
 const FORMATS_SUPPORTED = ["mov", "mp4"];
 
 const getVideos = (req, res, handleError) => {
-  const name = req.params.get("name");
-
-  if (name) {
-    res.json({ message: `You name is ${name}` });
-  } else {
-    return handleError({ status: 400, message: "Please specify name" });
-  }
+  db.update();
+  const videos = db.videos.filter((v) => v.userId == req.userId);
+  res.status(200).json(videos);
 };
 
 const uploadVideo = async (req, res, handleError) => {
@@ -48,15 +44,14 @@ const uploadVideo = async (req, res, handleError) => {
     //make a thumbnail video
     await FF.makeThumbnail(fullPath, thumbnailPath);
 
-    const dimentions = await FF.getDimentions(fullPath);
-    console.log("DIMENSIONS: ", dimentions);
+    const dimensions = await FF.getDimentions(fullPath);
     db.update();
     db.videos.unshift({
       id: db.videos.length,
       videoId,
       name,
       extension,
-      dimentions,
+      dimensions,
       userId: req.userId,
     });
     db.save();
@@ -74,7 +69,126 @@ const uploadVideo = async (req, res, handleError) => {
   }
 };
 
+const getVideoAsset = async (req, res, handleError) => {
+  const videoId = req.params.get("videoId");
+  const type = req.params.get("type");
+
+  db.update();
+
+  const video = db.videos.find((vid) => vid.videoId == videoId);
+  console.log("FIND VIDEO: ", video);
+  if (!video) {
+    return handleError({
+      status: 404,
+      message: "Video not found.",
+    });
+  }
+  let file;
+  let mimeType;
+  let fileName;
+  let filePath;
+
+  try {
+    switch (
+      type // thumbnail, audio, original, resize
+    ) {
+      case "thumbnail":
+        filePath = path.resolve(
+          __dirname,
+          `../../storage/${videoId}/thumbnail.jpg`,
+        );
+
+        file = await fsPromises.open(filePath, "r");
+        mimeType = "image/jpg";
+        break;
+      //audio
+      case "audio":
+        filePath = path.resolve(
+          __dirname,
+          `../../storage/${videoId}/audio.aac`,
+        );
+        file = await fsPromises.open(filePath, "r");
+        mimeType = "audio.aac";
+        fileName = `${video.name}-audio.aac`;
+        break;
+      //resize
+      case "resize":
+        const dimensions = req.params.get("dimensions");
+        filePath = path.resolve(
+          __dirname,
+          `../../storage/${videoId}/${dimensions}.${video.extension}`,
+        );
+        file = await fsPromises.open(filePath, "r");
+        mimeType = "video/mp4";
+        fileName = `${video.name}-${dimensions}.${video.extension}`;
+        break;
+      //original
+      case "original":
+        filePath = path.resolve(
+          __dirname,
+          `../../storage/${videoId}/original.${video.extension}`,
+        );
+        file = await fsPromises.open(filePath, "r");
+        mimeType = "video/mp4";
+        fileName = `${video.name}.${video.extension}`;
+        break;
+    }
+
+    const stat = await file.stat();
+    const readStream = file.createReadStream();
+
+    if (type != "thumbnail") {
+      //по умолчанию
+      // res.setHeader('Content-Disposition', 'inline'); //не скачиват, тодько показывает
+      res.setHeader("Content-Disposition", `attachment; filename=${fileName}`);
+    }
+
+    res.setHeader("Content-Type", mimeType);
+    res.setHeader("Content-Length", stat.size);
+    res.status(200);
+
+    await pipeline(readStream, res);
+    console.log("file was sended...");
+  } catch (error) {
+    console.error(error.toString());
+  } finally {
+    file.close();
+  }
+};
+
+const extractAudio = async (req, res, handleErr) => {
+  const videoId = req.params.get("videoId");
+
+  db.update();
+  const video = db.videos.find((v) => v.videoId == videoId);
+
+  if (video.extractedAudio) {
+    res.status(400).json({ message: "Audio has been already extracted." });
+  } else {
+    const videoPath = path.resolve(
+      __dirname,
+      `../../storage/${videoId}/original.${video.extension}`,
+    );
+    const audioPath = path.resolve(
+      __dirname,
+      `../../storage/${videoId}/audio.aac`,
+    );
+    try {
+      await FF.extractAudio(videoPath, audioPath);
+
+      video.extractedAudio = true;
+      db.save();
+      res.status(200).json({ message: "audio success extracted." });
+    } catch (error) {
+      util.deleteFile(audioPath);
+      return handleErr(err);
+    }
+  }
+};
+
 module.exports = {
   getVideos,
   uploadVideo,
+  getVideoAsset,
+  extractAudio,
 };
