@@ -81,7 +81,35 @@ async function getDimentions(fullPath) {
   });
 }
 
+async function extractAudio(originalVideoPath, targetAudioPath) {
+  return new Promise((resolve, reject) => {
+    const ffmpeg = spawn("ffmpeg", [
+      "-i",
+      originalVideoPath,
+      "-vn", // not catch video
+      "-c:a", // copy audio
+      "copy",
+      targetAudioPath,
+    ]);
+
+    ffmpeg.on("error", (err) => {
+      reject(err);
+    });
+
+    ffmpeg.on("close", (code) => {
+      if (code == 0) {
+        console.log("The audio was extracted seccessfully.");
+        resolve();
+      } else {
+        reject(`Ffmpeg existing with code ${code}`);
+      }
+      console.log("extractAudio close: ", code);
+    });
+  });
+}
+
 module.exports = {
   makeThumbnail,
   getDimentions,
+  extractAudio,
 };

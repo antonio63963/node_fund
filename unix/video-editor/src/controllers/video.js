@@ -173,6 +173,8 @@ const extractAudio = async (req, res, handleErr) => {
       __dirname,
       `../../storage/${videoId}/audio.aac`,
     );
+    console.log('AUD ', videoPath)
+    console.log('AUD aud', audioPath)
     try {
       await FF.extractAudio(videoPath, audioPath);
 
@@ -180,8 +182,9 @@ const extractAudio = async (req, res, handleErr) => {
       db.save();
       res.status(200).json({ message: "audio success extracted." });
     } catch (error) {
+      console.log(error)
       util.deleteFile(audioPath);
-      return handleErr(err);
+      return handleErr(error);
     }
   }
 };
