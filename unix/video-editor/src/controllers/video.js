@@ -3,8 +3,8 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const fsPromises = require("node:fs/promises");
 const { pipeline } = require("node:stream/promises");
-const util = require("../../utils/util.js");
-const FF = require("../../utils/FF.js");
+const util = require("../../lib/util.js");
+const FF = require("../../lib/FF.js");
 const db = require("../DB.js");
 
 const FORMATS_SUPPORTED = ["mov", "mp4"];
@@ -173,8 +173,8 @@ const extractAudio = async (req, res, handleErr) => {
       __dirname,
       `../../storage/${videoId}/audio.aac`,
     );
-    console.log('AUD ', videoPath)
-    console.log('AUD aud', audioPath)
+    console.log("AUD ", videoPath);
+    console.log("AUD aud", audioPath);
     try {
       await FF.extractAudio(videoPath, audioPath);
 
@@ -182,10 +182,61 @@ const extractAudio = async (req, res, handleErr) => {
       db.save();
       res.status(200).json({ message: "audio success extracted." });
     } catch (error) {
-      console.log(error)
+      console.log(error);
       util.deleteFile(audioPath);
       return handleErr(error);
     }
+  }
+};
+
+const resizeVideo = async (req, res, handleErr) => {
+  const videoId = req.body.videoId;
+  const width = +req.body.width;
+  const height = +req.body.height;
+
+  const sizeName = `${width}x${height}`;
+
+  db.update();
+  const video = db.videos.find((v) => v.videoId == videoId);
+  console.log("+++VIDEO: ", video, "ID: ", req.body);
+  const videoPath = path.resolve(
+    __dirname,
+    `../../storage/${videoId}/original.${video.extension}`,
+  );
+  const resizedVideoTarget = path.resolve(
+    __dirname,
+    `../../storage/${videoId}/${sizeName}.${video.extension}`,
+  );
+  try {
+    jobs.enque({
+      type: "resize",
+      videoId,
+      width,
+      height,
+    });
+    if (!video.resizes) {
+      video.resizes = {};
+    }
+    video.resizes[sizeName] = { processing: true };
+
+    const r = await FF.resizeVideo(
+      videoPath,
+      resizedVideoTarget,
+      width,
+      height,
+    );
+    console.log("R: ", r);
+
+    video.resizes[sizeName] = { processing: false };
+    db.save();
+    console.log("resize finish");
+    res
+      .status(200)
+      .json({ status: "success", message: "Resizing has been seccessfully." });
+  } catch (error) {
+    console.error("RESIZE: ", error);
+    util.deleteFile(resizedVideoTarget);
+    return handleErr(error);
   }
 };
 
@@ -194,4 +245,5 @@ module.exports = {
   uploadVideo,
   getVideoAsset,
   extractAudio,
+  resizeVideo,
 };

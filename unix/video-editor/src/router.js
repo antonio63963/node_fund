@@ -29,4 +29,5 @@ module.exports = (server) => {
   server.route("post", "/api/upload-video", Video.uploadVideo);
   server.route("get", "/get-video-asset", Video.getVideoAsset);
   server.route('patch', '/api/video/extract-audio', Video.extractAudio);
+  server.route("put", '/api/video/resize', Video.resizeVideo);
 };
