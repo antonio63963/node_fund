@@ -114,15 +114,22 @@ async function resizeVideo(
   width,
   height,
 ) {
+  // перед запуском приложения можно
+  // указать значение nice 19 до -20
+  // который определяет приоритет задачи(в ps это NI)
+  // и выделяет ему ресурсы и проц время(планировщик). Может ограничивать выполнение только 1 ядром
   return new Promise((resolve, reject) => {
     const ffmpeg = spawn("ffmpeg", [
+      "-y", // Автоматически перезаписывать выходной файл, если он существует
       "-i",
-      originalVideoPath,
-      "-vf", // not catch video
-      `scale=${width}:${height}`, // copy audio
+      originalVideoPath, // Входной файл
+      "-vf",
+      `scale=${width}:${height}`, // Изменение разрешения видео
       "-c:a",
-      "copy",
-      targetResizedPath,
+      "copy", // Копируем аудиопоток без перекодирования (быстро и без потери качества)
+      "-threads",
+      "2", // Ограничиваем кодирование видео 2 потоками
+      targetResizedPath, // Путь к готовому файлу
     ]);
 
     ffmpeg.on("error", (err) => {

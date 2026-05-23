@@ -6,8 +6,10 @@ const { pipeline } = require("node:stream/promises");
 const util = require("../../lib/util.js");
 const FF = require("../../lib/FF.js");
 const db = require("../DB.js");
+const JobsQueue = require("../../lib/JobsQueue.js");
 
 const FORMATS_SUPPORTED = ["mov", "mp4"];
+const jobs = new JobsQueue();
 
 const getVideos = (req, res, handleError) => {
   db.update();
@@ -194,48 +196,48 @@ const resizeVideo = async (req, res, handleErr) => {
   const width = +req.body.width;
   const height = +req.body.height;
 
-  const sizeName = `${width}x${height}`;
+  // const sizeName = `${width}x${height}`;
 
-  db.update();
-  const video = db.videos.find((v) => v.videoId == videoId);
-  console.log("+++VIDEO: ", video, "ID: ", req.body);
-  const videoPath = path.resolve(
-    __dirname,
-    `../../storage/${videoId}/original.${video.extension}`,
-  );
-  const resizedVideoTarget = path.resolve(
-    __dirname,
-    `../../storage/${videoId}/${sizeName}.${video.extension}`,
-  );
+  // db.update();
+  // const video = db.videos.find((v) => v.videoId == videoId);
+  // console.log("+++VIDEO: ", video, "ID: ", req.body);
+  // const videoPath = path.resolve(
+  //   __dirname,
+  //   `../../storage/${videoId}/original.${video.extension}`,
+  // );
+  // const resizedVideoTarget = path.resolve(
+  //   __dirname,
+  //   `../../storage/${videoId}/${sizeName}.${video.extension}`,
+  // );
   try {
-    jobs.enque({
+    jobs.enqueue({
       type: "resize",
       videoId,
       width,
       height,
     });
-    if (!video.resizes) {
-      video.resizes = {};
-    }
-    video.resizes[sizeName] = { processing: true };
+    // if (!video.resizes) {
+    //   video.resizes = {};
+    // }
+    // video.resizes[sizeName] = { processing: true };
 
-    const r = await FF.resizeVideo(
-      videoPath,
-      resizedVideoTarget,
-      width,
-      height,
-    );
-    console.log("R: ", r);
+    // const r = await FF.resizeVideo(
+    //   videoPath,
+    //   resizedVideoTarget,
+    //   width,
+    //   height,
+    // );
+    // console.log("R: ", r);
 
-    video.resizes[sizeName] = { processing: false };
-    db.save();
-    console.log("resize finish");
+    // video.resizes[sizeName] = { processing: false };
+    // db.save();
+    // console.log("resize finish");
     res
       .status(200)
       .json({ status: "success", message: "Resizing has been seccessfully." });
   } catch (error) {
-    console.error("RESIZE: ", error);
-    util.deleteFile(resizedVideoTarget);
+    // console.error("RESIZE: ", error);
+    // util.deleteFile(resizedVideoTarget);
     return handleErr(error);
   }
 };
