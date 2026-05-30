@@ -7,9 +7,15 @@ const util = require("../../lib/util.js");
 const FF = require("../../lib/FF.js");
 const db = require("../DB.js");
 const JobsQueue = require("../../lib/JobsQueue.js");
+const cluster = require("node:cluster");
 
 const FORMATS_SUPPORTED = ["mov", "mp4"];
-const jobs = new JobsQueue();
+
+let jobs = null;
+
+if (cluster.isPrimary) {
+  jobs = new JobsQueue();
+}
 
 const getVideos = (req, res, handleError) => {
   db.update();
@@ -196,42 +202,24 @@ const resizeVideo = async (req, res, handleErr) => {
   const width = +req.body.width;
   const height = +req.body.height;
 
-  // const sizeName = `${width}x${height}`;
-
-  // db.update();
-  // const video = db.videos.find((v) => v.videoId == videoId);
-  // console.log("+++VIDEO: ", video, "ID: ", req.body);
-  // const videoPath = path.resolve(
-  //   __dirname,
-  //   `../../storage/${videoId}/original.${video.extension}`,
-  // );
-  // const resizedVideoTarget = path.resolve(
-  //   __dirname,
-  //   `../../storage/${videoId}/${sizeName}.${video.extension}`,
-  // );
   try {
-    jobs.enqueue({
-      type: "resize",
-      videoId,
-      width,
-      height,
-    });
-    // if (!video.resizes) {
-    //   video.resizes = {};
-    // }
-    // video.resizes[sizeName] = { processing: true };
+    if (cluster.isPrimary) {
+      //это будет в родительском процессе для синх кластера если
+      // запущен в режиме кластера
+      jobs.enqueue({
+        type: "resize",
+        videoId,
+        width,
+        height,
+      });
+    } else {
+      //отправляю сообщение род процессу
+      process.send({
+        messageType: "new-resize",
+        data: { videoId, width, height },
+      });
+    }
 
-    // const r = await FF.resizeVideo(
-    //   videoPath,
-    //   resizedVideoTarget,
-    //   width,
-    //   height,
-    // );
-    // console.log("R: ", r);
-
-    // video.resizes[sizeName] = { processing: false };
-    // db.save();
-    // console.log("resize finish");
     res
       .status(200)
       .json({ status: "success", message: "Resizing has been seccessfully." });
